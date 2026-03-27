@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Urban Discovery - Premium Event Finder</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Inter:wght@300;400;600;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=3">
+    
+    <!-- Globe.gl & Three.js CDN -->
+    <script src="https://unpkg.com/three"></script>
+    <script src="https://unpkg.com/globe.gl"></script>
+    
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+</head>
+<body>
+    <div id="app-container">
+        <div class="noise-overlay"></div>
+        <nav class="glass-header">
+            <div class="logo">URBAN DISCOVERY</div>
+            <div class="nav-links">
+                <a href="#" id="ui-nav-events" onclick="showEventsGallery(); return false;">Events</a>
+                <a href="#" id="ui-nav-map" onclick="viewGlobalMap(); return false;">Map</a>
+                <a href="#" id="ui-nav-trending" onclick="toggleTrending(); return false;">Trending</a>
+                <button class="cta-pill" id="ui-nav-explore" onclick="exploreRandomEvent()">Explore</button>
+                <div class="auth-buttons" id="auth-container" style="display:flex; gap:10px; align-items:center; margin-left: 10px;">
+                    <button class="login-btn" onclick="openAuthModal('login')">Log In</button>
+                    <button class="signup-btn" onclick="openAuthModal('register')">Sign Up</button>
+                </div>
+                <div class="user-menu hidden" id="user-menu-container" style="display:flex; gap:10px; align-items:center; margin-left: 10px;">
+                    <span id="user-name-display" style="color: white; font-family: 'Inter'; font-weight: 600; margin-right: 5px;">User</span>
+                    <button class="cta-pill premium-btn hidden" id="organizer-dash-btn" onclick="openOrganizerDash()">Dashboard</button>
+                    <button class="cta-pill admin-btn hidden" id="admin-dash-btn" onclick="openAdminDash()">Admin</button>
+                    <button class="logout-btn" onclick="logoutUser()">Log Out</button>
+                </div>
+                <select id="lang-switcher" class="lang-pill" style="background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 20px; padding: 5px 15px; font-family: 'Inter'; cursor: pointer; outline: none;">
+                    <option value="en" style="color: black;">EN</option>
+                    <option value="es" style="color: black;">ES</option>
+                </select>
+            </div>
+        </nav>
+        
+        <main class="hero-section">
+            <h1 class="main-title" id="ui-hero-title">DISCOVER MEDELLÍN</h1>
+            <p class="subtitle" id="ui-hero-sub">Find curated events based on trending spots from TikTok and Instagram. Immersive experiences wait in the city of eternal spring.</p>
+        </main>
+        
+        <!-- 3D Map Container -->
+        <div id="globe-container"></div>
+        
+        <!-- 2D Leaflet Map Container & UI Overlay -->
+        <div id="map-ui-wrapper" class="map-hidden">
+            <div id="map-container"></div>
+            <button class="cta-pill map-back-btn" id="ui-back-btn" onclick="closeMap()">&larr; Back to Details</button>
+        </div>
+
+        <!-- Event Cards overlay -->
+        <div id="event-cards-container" class="events-scroll">
+            <!-- Cards populated by JS -->
+        </div>
+
+        <!-- Selected Event detail modal/panel -->
+        <div id="event-detail" class="glass-panel hidden">
+            <button class="close-btn">&times;</button>
+            <div class="event-content">
+               <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- Immersive Events Gallery Overlay -->
+        <div id="events-gallery" class="gallery-hidden">
+            <button class="gallery-close-btn" onclick="closeGallery()">✕</button>
+            
+            <div class="gallery-header">
+                <h2 id="ui-gallery-title">Upcoming Experiences</h2>
+                <div class="gallery-filters">
+                    <button class="filter-btn active" data-filter="all" onclick="setCategoryFilter('all')">All</button>
+                    <button class="filter-btn" data-filter="music" onclick="setCategoryFilter('music')">🎵 Music</button>
+                    <button class="filter-btn" data-filter="art" onclick="setCategoryFilter('art')">🎨 Art</button>
+                    <button class="filter-btn" data-filter="food" onclick="setCategoryFilter('food')">🍽️ Food</button>
+                </div>
+            </div>
+
+            <div class="gallery-grid" id="gallery-grid-container">
+                <!-- Rendered by JS -->
+            </div>
+        </div>
+
+        <!-- Auth Modal -->
+        <div id="auth-modal" class="modal-overlay hidden" style="z-index: 2000; position: fixed; top:0; left:0; width:100vw; height:100vh; background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s; flex-direction: column;">
+            <div class="auth-form-container" style="background: rgba(15,15,15,0.95); padding: 40px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.15); width: 420px; position: relative; box-shadow: 0 20px 50px rgba(0,0,0,0.8);">
+                <button class="close-btn" onclick="closeAuthModal()" style="position: absolute; right: 20px; top: 20px;">&times;</button>
+                <h2 id="auth-title" style="margin-top:0; color:white; font-family: 'Inter'; font-weight: 900; letter-spacing:-1px; text-transform: uppercase;">Log In</h2>
+                <p id="auth-error" style="color: #ff3232; font-size: 0.85rem; display: none; margin-bottom: 10px;"></p>
+                <input type="email" id="auth-email" placeholder="Email Address" class="glass-input">
+                <input type="password" id="auth-password" placeholder="Password" class="glass-input">
+                <button id="auth-submit-btn" class="cta-pill" style="width: 100%; margin-top: 25px; background: white; color: black; border: none; align-items: center; justify-content: center;" onclick="submitAuth()">Submit</button>
+                <p style="text-align:center; color:rgba(255,255,255,0.5); font-size:13px; margin-top:20px; cursor:pointer; font-family:'Inter';" onclick="toggleAuthMode()" id="auth-toggle-text">Need an account? <b>Sign Up</b></p>
+            </div>
+        </div>
+
+        <!-- Organizer Dashboard Modal -->
+        <div id="organizer-modal" class="modal-overlay hidden" style="z-index: 2000; position: fixed; top:0; left:0; width:100vw; height:100vh; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; flex-direction: column;">
+            <div class="dashboard-container" style="background: rgba(15,15,15,0.95); padding: 40px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.15); width: 550px; max-height: 90vh; overflow-y: auto; position: relative;">
+                <button class="close-btn" onclick="document.getElementById('organizer-modal').classList.add('hidden')" style="position: absolute; right: 20px; top: 20px;">&times;</button>
+                <h2 style="margin-top:0; color:#ffb432; font-family: 'Inter'; font-weight: 900; letter-spacing:-1px;">CREATE EVENT</h2>
+                <p style="color: rgba(255,255,255,0.6); font-size: 0.9rem; margin-bottom: 20px;">Submit a new local experience. It will be reviewed by an admin.</p>
+                
+                <input type="text" id="org-title" placeholder="Event Title (e.g. Secret Art Gallery)" class="glass-input">
+                <input type="text" id="org-location" placeholder="Location Address" class="glass-input">
+                <div style="display: flex; gap: 10px;">
+                    <input type="number" id="org-lat" placeholder="Lat (e.g. 6.2088)" class="glass-input" step="any">
+                    <input type="number" id="org-lng" placeholder="Lng (e.g. -75.5677)" class="glass-input" step="any">
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="org-date" placeholder="Date & Time (e.g. Friday 8 PM)" class="glass-input">
+                    <input type="text" id="org-price" placeholder="Price (e.g. $50k COP)" class="glass-input">
+                </div>
+                <select id="org-type" class="glass-input" style="color: black;">
+                    <option value="music">🎵 Music</option>
+                    <option value="art">🎨 Art</option>
+                    <option value="food">🍽️ Food</option>
+                </select>
+                <input type="text" id="org-image" placeholder="Image URL (Unsplash recommended for FAANG UI)" class="glass-input">
+                <textarea id="org-desc" placeholder="Event Description..." class="glass-input" style="height: 100px; resize: none;"></textarea>
+                
+                <button class="cta-pill premium-btn" style="width: 100%; margin-top: 25px; align-items: center; justify-content: center;" onclick="submitOrganizerEvent()">Submit for Review</button>
+            </div>
+        </div>
+
+        <!-- Admin Dashboard Modal -->
+        <div id="admin-modal" class="modal-overlay hidden" style="z-index: 2000; position: fixed; top:0; left:0; width:100vw; height:100vh; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; flex-direction: column;">
+            <div class="dashboard-container" style="background: rgba(15,15,15,0.95); padding: 40px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.15); width: 900px; max-height: 90vh; overflow-y: auto; position: relative;">
+                <button class="close-btn" onclick="document.getElementById('admin-modal').classList.add('hidden')" style="position: absolute; right: 20px; top: 20px;">&times;</button>
+                <h2 style="margin-top:0; color:#ff3232; font-family: 'Inter'; font-weight: 900; letter-spacing:-1px;">ADMIN PANEL</h2>
+                
+                <!-- Tab Navigation -->
+                <div style="display: flex; gap: 0; margin-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <button id="tab-events-btn" onclick="switchAdminTab('events')" style="padding: 12px 25px; background: transparent; color: white; border: none; border-bottom: 2px solid #ff3232; font-family: 'Inter'; font-weight: 700; cursor: pointer; font-size: 14px;">PENDING EVENTS</button>
+                    <button id="tab-bot-btn" onclick="switchAdminTab('bot')" style="padding: 12px 25px; background: transparent; color: rgba(255,255,255,0.5); border: none; border-bottom: 2px solid transparent; font-family: 'Inter'; font-weight: 700; cursor: pointer; font-size: 14px;">AI BOT CONTROL</button>
+                </div>
+
+                <!-- Tab 1: Pending Events (existing) -->
+                <div id="admin-tab-events">
+                    <div id="admin-table-container">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Tab 2: AI Bot Control -->
+                <div id="admin-tab-bot" class="hidden">
+                    <!-- Stats Bar -->
+                    <div id="bot-stats-bar" style="display: flex; gap: 15px; margin-bottom: 25px;">
+                        <div style="flex:1; background: rgba(255,255,255,0.05); border-radius: 12px; padding: 15px; text-align: center;">
+                            <div style="font-size: 28px; font-weight: 900; color: #ffb432;" id="stat-pending">-</div>
+                            <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px;">Pending</div>
+                        </div>
+                        <div style="flex:1; background: rgba(255,255,255,0.05); border-radius: 12px; padding: 15px; text-align: center;">
+                            <div style="font-size: 28px; font-weight: 900; color: #00ff88;" id="stat-approved">-</div>
+                            <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px;">Approved</div>
+                        </div>
+                        <div style="flex:1; background: rgba(255,255,255,0.05); border-radius: 12px; padding: 15px; text-align: center;">
+                            <div style="font-size: 28px; font-weight: 900; color: white;" id="stat-total">-</div>
+                            <div style="font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px;">Total Bot</div>
+                        </div>
+                    </div>
+
+                    <!-- Manual URL Scanner -->
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 20px; margin-bottom: 20px;">
+                        <h3 style="margin-top:0; color: white; font-family: 'Inter'; font-weight: 800; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Scan TikTok URL</h3>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="bot-url-input" placeholder="https://www.tiktok.com/@user/video/..." class="glass-input" style="margin-top: 0; flex: 1;">
+                            <button onclick="botScanUrl()" class="cta-pill" style="background: #ff3232; color: white; border: none; padding: 12px 25px; font-weight: 800; white-space: nowrap; border-radius: 12px; cursor: pointer;">SCAN</button>
+                        </div>
+                        <p id="bot-scan-result" style="color: rgba(255,255,255,0.5); font-size: 12px; margin-top: 10px; display: none;"></p>
+                    </div>
+
+                    <!-- Tracked Accounts -->
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 20px; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h3 style="margin:0; color: white; font-family: 'Inter'; font-weight: 800; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Tracked Accounts</h3>
+                            <button onclick="botScanAll()" class="cta-pill" style="background: linear-gradient(135deg, #ff3232, #ff7e32); color: white; border: none; padding: 8px 20px; font-weight: 800; font-size: 12px; border-radius: 20px; cursor: pointer;">SCAN ALL NOW</button>
+                        </div>
+                        <div id="bot-accounts-list" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            <!-- Populated by JS -->
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-top: 15px;">
+                            <input type="text" id="bot-new-account" placeholder="@username (sin @)" class="glass-input" style="margin-top: 0; flex: 1;">
+                            <button onclick="botAddAccount()" class="cta-pill" style="background: #00ff88; color: black; border: none; padding: 10px 20px; font-weight: 800; font-size: 12px; border-radius: 12px; cursor: pointer;">+ ADD</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    <script src="app.js?v=4"></script>
+</body>
+</html>
